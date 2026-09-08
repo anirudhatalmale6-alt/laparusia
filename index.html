@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LaParusia — pizza and bakery</title>
-<meta name="description" content="Build a pizza slice by slice. Eight slices, eight decisions — choose a different topping for each one, pick your size in inches, and see the price as you go.">
+<meta name="description" content="Build one custom pizza, or build it slice by slice — a different topping on each of the eight. Pick your size in inches and see the price as you go.">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="LaParusia">
 <meta property="og:locale" content="en_CA">
 <meta property="og:title" content="LaParusia — pizza and bakery">
-<meta property="og:description" content="Build a pizza slice by slice. Eight slices, eight decisions.">
+<meta property="og:description" content="One custom pizza, or slice by slice — a different topping on each of the eight.">
 <meta property="og:image" content="https://anirudhatalmale6-alt.github.io/laparusia/partage.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -18,7 +18,7 @@
 <meta name="twitter:title" content="LaParusia — pizza and bakery">
 <meta name="twitter:image" content="https://anirudhatalmale6-alt.github.io/laparusia/partage.png">
 
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20260908">
 </head>
 <body>
 
@@ -49,9 +49,9 @@
     <div class="wrap hero-in">
       <p class="eyebrow">Pizza &amp; bakery</p>
       <h1>Eight slices.<br>Eight decisions.</h1>
-      <p class="lede">Most places make you agree with everyone at the table. Here you don't.
-        Pick a different topping for every slice, choose your size in inches, and watch the
-        price follow you.</p>
+      <p class="lede">Build one pizza the whole table agrees on, or a different topping on
+        every one of the eight slices. Choose your size in inches and watch the price follow
+        you either way.</p>
       <p class="hero-cta"><a class="btn" href="#builder">Start building</a>
         <a class="btn btn-quiet" href="#bakery">See the bakery</a></p>
     </div>
@@ -61,7 +61,21 @@
   <section id="builder" class="builder">
     <div class="wrap">
       <p class="kicker">The builder</p>
-      <h2>Your pizza, one slice at a time</h2>
+      <h2>Your pizza, your way</h2>
+
+      <!-- Les deux façons de commander. Deux boutons visibles plutôt qu'une
+           case à cocher : personne ne coche « slice by slice » sans savoir ce
+           que ça veut dire, alors chacun porte sa phrase d'explication. -->
+      <div class="mode" id="mode" role="radiogroup" aria-label="How you want to build it">
+        <button type="button" class="mode-btn" id="modeWhole" role="radio" aria-checked="false">
+          <b>One custom pizza</b>
+          <small>The same toppings all the way round</small>
+        </button>
+        <button type="button" class="mode-btn" id="modeSlices" role="radio" aria-checked="true">
+          <b>Slice by slice</b>
+          <small>A different topping on each of the eight</small>
+        </button>
+      </div>
 
       <div class="build-grid">
 
@@ -100,7 +114,7 @@
             <p class="note" id="sizeNote"></p>
           </fieldset>
 
-          <fieldset class="block">
+          <fieldset class="block" id="blockSlices">
             <legend>Slice</legend>
             <div class="slicetabs" id="sliceTabs" role="tablist" aria-label="Choose a slice"></div>
           </fieldset>
@@ -113,8 +127,8 @@
           <fieldset class="block">
             <legend>Toppings <span class="legend-note" id="toppingFor">— slice 1</span></legend>
             <div class="tops" id="tops"></div>
-            <p class="note">A topping on one slice costs an eighth of what it costs on the
-              whole pizza. That is the whole point of cutting it into eight.</p>
+            <p class="note" id="topNote">A topping on one slice costs an eighth of what it
+              costs on the whole pizza. That is the whole point of cutting it into eight.</p>
           </fieldset>
 
           <div class="ticket" aria-live="polite">
@@ -175,6 +189,6 @@
   </div>
 </footer>
 
-<script src="app.js"></script>
+<script src="app.js?v=20260825b"></script>
 </body>
 </html>

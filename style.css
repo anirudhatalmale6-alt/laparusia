@@ -14,6 +14,12 @@
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0}
 
+/* [hidden] vient de la feuille du navigateur, donc N'IMPORTE QUELLE règle
+   d'auteur qui pose un display le bat. Mesuré : .btn est en inline-flex, et le
+   bouton « put this slice on all eight » restait affiché en mode pizza entière
+   alors que l'attribut était bien posé. */
+[hidden]{display:none!important}
+
 :root{
   --rose:#D9376E;          /* l'accent */
   --rose-d:#A82454;        /* le meme, pour le texte fin sur blanc */
@@ -59,6 +65,14 @@ a{color:var(--rose-d)}
 .btn-quiet{background:#fff;color:var(--rose-d);border:1.5px solid var(--line)}
 .btn-quiet:hover{background:var(--rose-l);color:var(--rose-d);border-color:var(--rose)}
 
+/* L'en-tete est COLLANT. Sans la reserve ci-dessous, un lien d'ancre amene
+   la section a top:0 — c'est-a-dire DERRIERE la barre : 69 px avales sur
+   grand ecran, 118 px sur telephone ou la navigation passe a la ligne. Le
+   titre de la section visee disparait donc au moment precis ou l'on clique
+   pour l'atteindre. Mesure au navigateur, pas estimee. */
+html{scroll-padding-top:84px}
+@media (max-width:700px){html{scroll-padding-top:132px}}
+
 /* ---------- en-tete ------------------------------------------------ */
 .top{position:sticky;top:0;z-index:20;background:rgba(255,252,253,.92);
   backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
@@ -92,8 +106,32 @@ a{color:var(--rose-d)}
 /* Chaque part est un bouton : on peut y arriver au clavier, et un lecteur
    d'ecran annonce laquelle est choisie. Une pizza cliquable qui n'est pas
    atteignable au clavier exclut une partie des clients pour rien. */
+/* ---------- les deux façons de commander ----------------------------- */
+/* Deux blocs pleine largeur, au-dessus du constructeur : c'est la première
+   décision à prendre, donc elle est prise avant de voir la pizza. */
+.mode{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 26px;max-width:640px}
+.mode-btn{
+  text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:var(--r);
+  padding:13px 16px;font:inherit;color:var(--ink-2);cursor:pointer;
+  transition:all .18s var(--ease);
+}
+.mode-btn b{display:block;font-size:15.5px;font-weight:750;color:var(--ink)}
+.mode-btn small{display:block;font-size:12.5px;color:var(--mut);margin-top:2px;line-height:1.35}
+.mode-btn:hover{border-color:var(--rose)}
+.mode-btn[aria-checked="true"]{background:var(--rose);border-color:var(--rose)}
+.mode-btn[aria-checked="true"] b,
+.mode-btn[aria-checked="true"] small{color:#fff}
+.mode-btn[aria-checked="true"] small{opacity:.85}
+
 .slice{cursor:pointer;transition:filter .18s var(--ease)}
 .slice:hover .slice-hit{filter:brightness(1.04)}
+/* Sur une pizza entière il n'y a rien à choisir part par part : pas de main,
+   pas de surbrillance au survol. Un curseur qui promet un clic sans effet
+   fait chercher la panne.
+   CETTE RÈGLE DOIT RESTER APRÈS celle du survol : les deux ont exactement la
+   même spécificité, c'est l'ordre du fichier qui tranche. */
+.slice-fige{cursor:default}
+.slice-fige:hover .slice-hit{filter:none}
 .slice:focus{outline:none}
 .slice:focus-visible .slice-ring{opacity:1}
 .slice-ring{opacity:0;stroke:var(--rose);stroke-width:4;fill:none}
@@ -188,6 +226,9 @@ a{color:var(--rose-d)}
 }
 @media (max-width:560px){
   .slicetabs{grid-template-columns:repeat(4,1fr)}
+  /* Deux colonnes à cette largeur couperaient « A different topping on each
+     of the eight » en quatre lignes de trois mots. */
+  .mode{grid-template-columns:1fr}
   .hero-in{padding:54px 22px 60px}
   .nav{gap:16px}
 }
