@@ -1,10 +1,14 @@
-/* LaParusia — the eight-slice pizza builder.
+/* LaParusia — the pizza builder.
  *
  * The client asked for a pizza "divided in 8 parts", sizes in inches, English
- * only, rose theme. The eight parts are not decoration: each slice carries its
- * own toppings, and a topping on one slice costs an eighth of what it costs on
- * the whole pizza. That arithmetic is the reason to cut it into eight at all —
- * without it, eight slices is just a drawing.
+ * only, rose theme, and then for two ways to order it: "custom pizza" or
+ * "slice by slice".
+ *
+ * TWO MODES, ONE PRICE LIST. On a whole pizza a topping costs its full price.
+ * On a single slice it costs an eighth of that. Eight topped slices and one
+ * topped whole pizza therefore come to exactly the same money — the two modes
+ * do not compete, they count in different units. That arithmetic is the reason
+ * to cut it into eight at all; without it, eight slices is just a drawing.
  *
  * NOTHING IS PRICED IN THIS FILE. Every figure comes from data/menu.json, and
  * every figure in that file is marked a placeholder. A price written into code
@@ -21,12 +25,52 @@
 
   var menu = null;
   var etat = {
+    mode: 'slices',          /* 'whole' = une pizza entière, 'slices' = par part */
     taille: null,
     base: null,
     part: 0,                 /* la part choisie, 0..7 */
-    parts: []                /* parts[i] = { cle_garniture: true } */
+    parts: [],               /* parts[i] = { cle_garniture: true } */
+    entier: {}               /* les garnitures du mode « pizza entière » */
   };
   for (var i = 0; i < N; i++) etat.parts.push({});
+
+  /* LES DEUX MODES NE SE DÉTRUISENT PAS L'UN L'AUTRE. Chacun garde ses
+     garnitures dans son coin, donc revenir en arrière rend exactement ce
+     qu'on avait laissé. Un bouton qui efface silencieusement huit choix pour
+     en afficher zéro passe pour un bug, pas pour un mode. */
+  function garnituresCourantes() {
+    return etat.mode === 'whole' ? etat.entier : etat.parts[etat.part];
+  }
+
+  /* Ce que coûte une garniture DANS LE MODE COURANT : son prix entier sur une
+     pizza entière, un huitième sur une part. */
+  function prixGarniture(t) {
+    return etat.mode === 'whole' ? t.whole : t.whole / N;
+  }
+
+  function vide(o) { return Object.keys(o).length === 0; }
+
+  function copier(o) {
+    var out = {};
+    Object.keys(o).forEach(function (k) { out[k] = true; });
+    return out;
+  }
+
+  function changerMode(m) {
+    if (m === etat.mode) return;
+
+    /* On ne reporte les garnitures d'un mode sur l'autre QUE si l'autre est
+       vide : sinon on écraserait un choix que le client a fait à la main. */
+    if (m === 'whole' && vide(etat.entier)) {
+      etat.entier = copier(etat.parts[etat.part]);
+    }
+    if (m === 'slices' && etat.parts.every(vide)) {
+      for (var k = 0; k < N; k++) etat.parts[k] = copier(etat.entier);
+    }
+
+    etat.mode = m;
+    tout();
+  }
 
   /* ---------------------------------------------------------------- */
   /* petits utilitaires                                                */
@@ -155,33 +199,40 @@
     var g = $('#slices');
     g.textContent = '';
 
+    var parPart = etat.mode === 'slices';
+
     for (var i = 0; i < N; i++) {
-      var part = svgEl('g', {
-        class: 'slice' + (i === etat.part ? ' on' : ''),
-        tabindex: '0', role: 'button',
-        'aria-pressed': i === etat.part ? 'true' : 'false',
-        'aria-label': etiquettePart(i)
-      });
+      /* En mode « pizza entière » une part n'est plus un bouton : rien à y
+         choisir. Elle perd donc aussi son tabindex et son rôle, sinon le
+         clavier s'arrête huit fois sur un dessin qui ne fait rien. */
+      var part = svgEl('g', parPart
+        ? { class: 'slice' + (i === etat.part ? ' on' : ''),
+            tabindex: '0', role: 'button',
+            'aria-pressed': i === etat.part ? 'true' : 'false',
+            'aria-label': etiquettePart(i) }
+        : { class: 'slice slice-fige' });
 
       part.appendChild(svgEl('path', {
         class: 'slice-hit', d: cheminPart(i, R_CHEESE), fill: couleurBase()
       }));
 
       var gg = svgEl('g', {});
-      var liste = Object.keys(etat.parts[i]);
-      liste.forEach(function (cle) { dessinerGarniture(cle, gg, i); });
+      var source = parPart ? etat.parts[i] : etat.entier;
+      Object.keys(source).forEach(function (cle) { dessinerGarniture(cle, gg, i); });
       part.appendChild(gg);
 
       part.appendChild(svgEl('path', {
         class: 'slice-ring', d: cheminPart(i, R_CHEESE - 3)
       }));
 
-      (function (idx) {
-        part.addEventListener('click', function () { choisirPart(idx); });
-        part.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choisirPart(idx); }
-        });
-      })(i);
+      if (parPart) {
+        (function (idx) {
+          part.addEventListener('click', function () { choisirPart(idx); });
+          part.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choisirPart(idx); }
+          });
+        })(i);
+      }
 
       g.appendChild(part);
     }
@@ -268,7 +319,8 @@
     var z = $('#tops');
     z.textContent = '';
     menu.toppings.forEach(function (t) {
-      var pose = !!etat.parts[etat.part][t.key];
+      var cible = garnituresCourantes();
+      var pose = !!cible[t.key];
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'top-btn';
@@ -276,10 +328,13 @@
       b.innerHTML =
         '<span class="top-swatch" style="background:' + t.colour + '"></span>' +
         '<span class="top-name">' + t.label + '</span>' +
-        '<span class="top-price">' + argent(t.whole / N) + '</span>';
+        '<span class="top-price">' + argent(prixGarniture(t)) + '</span>';
       b.addEventListener('click', function () {
-        if (etat.parts[etat.part][t.key]) delete etat.parts[etat.part][t.key];
-        else etat.parts[etat.part][t.key] = true;
+        /* On relit la cible au clic, pas à la construction : entre les deux,
+           le mode ou la part ont pu changer. */
+        var c = garnituresCourantes();
+        if (c[t.key]) delete c[t.key];
+        else c[t.key] = true;
         tout();
       });
       z.appendChild(b);
@@ -298,27 +353,43 @@
   function calculer() {
     var s = menu.sizes.filter(function (x) { return x.key === etat.taille; })[0];
     var base = s ? s.base : 0;
-    var garnitures = 0, partsGarnies = 0;
+    var garnitures = 0, partsGarnies = 0, entieres = 0;
 
-    etat.parts.forEach(function (p) {
-      var cles = Object.keys(p);
-      if (cles.length) partsGarnies++;
-      cles.forEach(function (cle) {
+    if (etat.mode === 'whole') {
+      /* Une garniture sur la pizza entière coûte son prix entier. C'est le
+         même argent que huit huitièmes : les deux modes ne se contredisent
+         pas, ils ne comptent pas dans la même unité. */
+      Object.keys(etat.entier).forEach(function (cle) {
         var t = menu.toppings.filter(function (x) { return x.key === cle; })[0];
-        if (t) garnitures += t.whole / N;      /* un huitième, par part */
+        if (t) { garnitures += t.whole; entieres++; }
       });
-    });
+    } else {
+      etat.parts.forEach(function (p) {
+        var cles = Object.keys(p);
+        if (cles.length) partsGarnies++;
+        cles.forEach(function (cle) {
+          var t = menu.toppings.filter(function (x) { return x.key === cle; })[0];
+          if (t) garnitures += t.whole / N;      /* un huitième, par part */
+        });
+      });
+    }
 
     return { base: base, garnitures: garnitures, parts: partsGarnies,
-             total: base + garnitures, taille: s };
+             entieres: entieres, total: base + garnitures, taille: s };
   }
 
   function peindreAddition() {
     var c = calculer();
     $('#tSize').textContent = c.taille ? c.taille.label : '—';
     $('#tBase').textContent = argent(c.base);
-    $('#tCount').textContent = c.parts === 0 ? 'none yet'
-      : (c.parts === 1 ? '1 slice topped' : c.parts + ' slices topped');
+    if (etat.mode === 'whole') {
+      $('#tCount').textContent = c.entieres === 0 ? 'none yet'
+        : (c.entieres === 1 ? '1 topping, whole pizza'
+                            : c.entieres + ' toppings, whole pizza');
+    } else {
+      $('#tCount').textContent = c.parts === 0 ? 'none yet'
+        : (c.parts === 1 ? '1 slice topped' : c.parts + ' slices topped');
+    }
     $('#tTops').textContent = argent(c.garnitures);
     $('#tTotal').textContent = argent(c.total);
     $('#sizeNote').textContent = c.taille
@@ -327,17 +398,46 @@
   }
 
   function peindreIndices() {
-    var liste = Object.keys(etat.parts[etat.part]).map(nomGarniture);
-    $('#pieHint').textContent = liste.length
-      ? 'Slice ' + (etat.part + 1) + ' — ' + liste.join(', ')
-      /* Pas « a droite » : sur un telephone les garnitures passent DESSOUS.
-         Une phrase qui decrit une disposition qui n'existe pas a cette largeur
-         envoie le client chercher au mauvais endroit. */
-      : 'Slice ' + (etat.part + 1) + ' selected — choose its toppings.';
-    $('#toppingFor').textContent = '— slice ' + (etat.part + 1);
+    var liste = Object.keys(garnituresCourantes()).map(nomGarniture);
+
+    if (etat.mode === 'whole') {
+      $('#pieHint').textContent = liste.length
+        ? 'Whole pizza — ' + liste.join(', ')
+        : 'One pizza, the same all the way round — choose its toppings.';
+      $('#toppingFor').textContent = '— the whole pizza';
+      $('#topNote').textContent = 'A topping here goes on all eight slices and is charged '
+        + 'once, at its full price.';
+    } else {
+      $('#pieHint').textContent = liste.length
+        ? 'Slice ' + (etat.part + 1) + ' — ' + liste.join(', ')
+        /* Pas « a droite » : sur un telephone les garnitures passent DESSOUS.
+           Une phrase qui decrit une disposition qui n'existe pas a cette largeur
+           envoie le client chercher au mauvais endroit. */
+        : 'Slice ' + (etat.part + 1) + ' selected — choose its toppings.';
+      $('#toppingFor').textContent = '— slice ' + (etat.part + 1);
+      $('#topNote').textContent = 'A topping on one slice costs an eighth of what it costs '
+        + 'on the whole pizza. That is the whole point of cutting it into eight.';
+    }
+  }
+
+  function peindreMode() {
+    $('#modeWhole').setAttribute('aria-checked', etat.mode === 'whole' ? 'true' : 'false');
+    $('#modeSlices').setAttribute('aria-checked', etat.mode === 'slices' ? 'true' : 'false');
+
+    /* Le choix de la part et les outils de part n'ont aucun sens sur une
+       pizza entière : ils sortent de la page au lieu de rester grisés. */
+    $('#blockSlices').hidden = etat.mode === 'whole';
+    $('#allSame').hidden = etat.mode === 'whole';
+    $('#clearSlice').textContent = etat.mode === 'whole'
+      ? 'Clear the toppings' : 'Clear this slice';
+
+    $('#pie').setAttribute('aria-label', etat.mode === 'whole'
+      ? 'A pizza cut into eight slices, all with the same toppings.'
+      : 'A pizza cut into eight slices. Select a slice to give it its own toppings.');
   }
 
   function tout() {
+    peindreMode();
     construireTailles();
     construireBases();
     construireOnglets();
@@ -377,12 +477,23 @@
       tout();
     });
     $('#clearSlice').addEventListener('click', function () {
-      etat.parts[etat.part] = {};
+      if (etat.mode === 'whole') etat.entier = {};
+      else etat.parts[etat.part] = {};
       tout();
     });
+    $('#modeWhole').addEventListener('click', function () { changerMode('whole'); });
+    $('#modeSlices').addEventListener('click', function () { changerMode('slices'); });
   }
 
-  fetch('data/menu.json')
+  /* Le chemin de la carte n'est PAS fixe ici. En statique (GitHub Pages, le
+     zip, l'apercu) la page et data/ sont dans le meme dossier et le chemin
+     relatif suffit. Sous WordPress la page est servie a la racine du domaine
+     alors que le fichier vit dans le theme : « data/menu.json » y pointerait
+     sur /data/menu.json, qui n'existe pas, et le constructeur entier tomberait
+     sur le message d'erreur. Le theme pose donc window.LP_MENU_URL, et ce
+     fichier reste le MEME dans les deux cas — une seule source, pas deux
+     copies qui divergent. */
+  fetch(window.LP_MENU_URL || 'data/menu.json')
     .then(function (r) {
       if (!r.ok) throw new Error('menu.json — HTTP ' + r.status);
       return r.json();
